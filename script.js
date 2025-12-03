@@ -23,7 +23,7 @@ let currentPositionMarker = null; // 현재 위치 마커 관리
 let routePolyline = null; // 경로 선 관리
 
 
-// --- Geolocation 및 지도 이동 ---
+// --- Geolocation 및 지도 이동 (유지) ---
 
 /**
  * 지도에 마커를 표시하고 기존 마커를 제거하는 헬퍼 함수
@@ -105,7 +105,7 @@ function moveToCurrentLocation(isInitialLoad = false) {
 }
 
 
-// --- 카카오 맵 초기화 ---
+// --- 카카오 맵 초기화 (유지) ---
 
 function initMap() {
     const container = document.getElementById('map');
@@ -120,11 +120,10 @@ function initMap() {
     moveToCurrentLocation(true); 
 }
 
-// 카카오 맵 SDK를 동적으로 로드 (services 라이브러리 추가)
+// 카카오 맵 SDK를 동적으로 로드 (유지)
 function loadKakaoMapScript() {
     const script = document.createElement('script');
     script.type = 'text/javascript';
-    // services 라이브러리 포함: 주소를 좌표로 변환하는 데 필요
     script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&libraries=services,clusterer,drawing&autoload=false`; 
     
     script.onload = () => {
@@ -133,7 +132,7 @@ function loadKakaoMapScript() {
     document.head.appendChild(script);
 }
 
-// --- TMAP 경로 검색 및 지도 그리기 ---
+// --- TMAP 경로 검색 및 지도 그리기 (유지) ---
 
 /**
  * TMAP API를 Vercel Proxy를 통해 호출하여 경로를 검색합니다.
@@ -141,12 +140,6 @@ function loadKakaoMapScript() {
 async function searchRoute() {
     const startAddress = startInput.value;
     const endAddress = endInput.value;
-    
-    // 이전에 그려진 경로선 제거
-    if (routePolyline) {
-        routePolyline.setMap(null);
-        routePolyline = null;
-    }
     
     routeSummaryList.innerHTML = '<h4>경로 검색 중... 잠시만 기다려주세요.</h4>';
     switchScreen(2); // 경로 조회 화면으로 먼저 이동
@@ -192,7 +185,7 @@ async function searchRoute() {
         if (routes && routes.length > 0) {
             displayRoutes(routes);
             
-            // 📢 최선의 경로 (첫 번째 경로)를 지도에 바로 그립니다.
+            // 첫 번째 경로의 Polyline을 지도에 그립니다.
             const polylineCoordinates = await getPolylineFromRoute(routes[0].legs);
             drawPolyline(polylineCoordinates);
 
@@ -205,9 +198,6 @@ async function searchRoute() {
     }
 }
 
-/**
- * Kakao Local API를 사용하여 주소(또는 키워드)를 좌표로 변환합니다.
- */
 function getCoordsFromAddress(address) {
     return new Promise((resolve) => {
         window.ps.keywordSearch(address, (data, status) => {
@@ -223,9 +213,6 @@ function getCoordsFromAddress(address) {
     });
 }
 
-/**
- * 경로 요약을 화면에 표시하고 이벤트 리스너를 추가합니다.
- */
 function displayRoutes(routes) {
     let html = '';
 
@@ -255,7 +242,6 @@ function displayRoutes(routes) {
 
     routeSummaryList.innerHTML = html;
     
-    // 경로 카드 선택 이벤트 리스너 추가
     routes.forEach((route, index) => {
         document.querySelector(`.btn-select-route-${index}`).addEventListener('click', async () => {
             const polylineCoordinates = await getPolylineFromRoute(route.legs);
@@ -265,67 +251,53 @@ function displayRoutes(routes) {
     });
 }
 
-/**
- * 📢 Kakao 지도에 경로선(Polyline)을 그립니다.
- */
 function drawPolyline(coords) {
-    // 기존 경로선 제거
     if (routePolyline) {
         routePolyline.setMap(null);
     }
     
-    // Kakao LatLng 객체 배열 생성 (좌표들을 이어서 선을 표시)
     const linePath = coords.map(c => new kakao.maps.LatLng(c[1], c[0]));
     
-    // Polyline 객체 생성
     routePolyline = new kakao.maps.Polyline({
         path: linePath, 
         strokeWeight: 6, 
-        strokeColor: '#0076a8', // 네이버 블루 계열 색상
+        strokeColor: '#0076a8', 
         strokeOpacity: 0.8, 
         strokeStyle: 'solid' 
     });
 
     routePolyline.setMap(window.kakaoMap);
     
-    // 경로가 한눈에 보이도록 지도 범위 조정
     const bounds = new kakao.maps.LatLngBounds();
     linePath.forEach(p => bounds.extend(p));
     window.kakaoMap.setBounds(bounds);
 }
 
-/**
- * TMAP 경로 결과에서 Polyline을 위한 좌표 배열을 추출합니다.
- */
 async function getPolylineFromRoute(legs) {
     let coordinates = [];
 
     legs.forEach(leg => {
-        // 출발 지점 좌표
         if (leg.start && leg.start.lon && leg.start.lat) {
             coordinates.push([leg.start.lon, leg.start.lat]);
         }
         
-        // 경유 정류장 목록 좌표
         if (leg.passStopList && leg.passStopList.stations) {
             leg.passStopList.stations.forEach(station => {
                 coordinates.push([station.lon, station.lat]);
             });
         }
         
-        // 도착 지점 좌표
         if (leg.end && leg.end.lon && leg.end.lat) {
             coordinates.push([leg.end.lon, leg.end.lat]);
         }
     });
 
-    // 중복 좌표 제거 및 반환
     const uniqueCoords = Array.from(new Set(coordinates.map(JSON.stringify)), JSON.parse);
     return uniqueCoords;
 }
 
 
-// --- 새로운 기능: 출발/도착지 교환 (생략) ---
+// --- 새로운 기능: 출발/도착지 교환 (유지) ---
 
 function swapLocations() {
     const tempValue = startInput.value;
@@ -346,7 +318,7 @@ function toggleSheet() {
         bottomSheet.classList.add('initial-minimized');
         document.querySelector('.floating-buttons').style.display = 'flex';
 
-        // 📢 모션 개선: display: none 제어를 CSS에 완전히 맡깁니다.
+        // 📢 [수정] 모션 개선: 내용 숨기기 시작 (transition 발동)
         const content = document.getElementById('expandedSheetContent');
         if (content) {
              content.style.opacity = 0; // 내용 숨기기 시작
