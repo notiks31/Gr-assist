@@ -1,3 +1,5 @@
+// package.json
+
 {
   "name": "transit-helper-app",
   "version": "1.0.0",
@@ -7,7 +9,7 @@
     "start": "node index.js"
   },
   "engines": {
-    "node": "18.x" 
+    "node": "24.x" 
   },
   "dependencies": {
     "node-fetch": "^3.3.2" 
