@@ -155,50 +155,35 @@ async function searchRoute() {
         return;
     }
 
-    // 2. TMAP API 호출을 위한 매개변수
-    const url = 'https://apis.openapi.sk.com/tmap/publictrans/transitInfo?version=1&format=json';
-    const params = {
+    // 📢 수정된 부분: TMAP URL 대신 Vercel Proxy 엔드포인트 호출
+    const proxyUrl = '/api/proxy'; // Vercel rewrites 설정에 따라 경로 지정
+    
+    const requestBody = {
+        // TMAP에 전달할 좌표 데이터만 Body에 담아서 보냅니다.
         'startX': startCoords.longitude,
         'startY': startCoords.latitude,
         'endX': endCoords.longitude,
-        'endY': endCoords.latitude,
-        'reqType': 'TOTAL', 
-        'page': 1,
-        'count': 10,
-        'sort': 'startTime'
+        'endY': endCoords.latitude
     };
 
     try {
-        const response = await fetch(url, {
+        // 📢 fetch URL이 TMAP이 아닌 Vercel의 프록시 URL이어야 합니다.
+        const response = await fetch(proxyUrl, { 
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'appKey': TMAP_KEY 
-            },
-            body: JSON.stringify(params)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
-            // TMAP CORS/API 키 오류 시
-            throw new Error(`TMAP API 호출 실패: ${response.status}`);
+            throw new Error(`Proxy 호출 실패: ${response.status}`);
         }
 
         const data = await response.json();
-        const routes = data.metaData.plan.itineraries;
+        // ... (이후 결과 처리 로직은 그대로 유지) ...
 
-        if (routes && routes.length > 0) {
-            displayRoutes(routes);
-            
-            // 첫 번째 경로의 Polyline을 지도에 그립니다.
-            const polylineCoordinates = await getPolylineFromRoute(routes[0].legs);
-            drawPolyline(polylineCoordinates);
-
-        } else {
-            routeSummaryList.innerHTML = '<h4>검색된 대중교통 경로가 없습니다.</h4>';
-        }
     } catch (error) {
         console.error("경로 검색 중 오류 발생:", error);
-        routeSummaryList.innerHTML = '<h4>경로 검색 중 서버 오류가 발생했습니다. (CORS 또는 API 키 오류)</h4>';
+        routeSummaryList.innerHTML = '<h4>경로 검색 중 서버 오류가 발생했습니다.</h4>';
     }
 }
 
