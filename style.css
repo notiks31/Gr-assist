@@ -111,11 +111,13 @@ body {
 
 .sheet-header {
     width: 100%;
-    height: 20px;
-    padding: 10px 0;
+    height: 40px; /* 📢 클릭 영역 확보를 위해 높이 확대 */
+    padding: 0;
     display: flex;
     justify-content: center;
     cursor: pointer;
+    z-index: 101; 
+    background-color: transparent; 
 }
 
 .handle-bar {
@@ -151,25 +153,47 @@ body {
     padding: 15px;
     /* 📢 모션 개선: 자식 화면들이 부드럽게 나타나도록 opacity 전환 적용 */
     transition: opacity 0.3s ease-in-out; 
+    display: none; /* 기본적으로 숨김 (JS에서 제어) */
+    position: relative; /* 자식 화면의 absolute 배치 기준점 */
 }
+
 .bottom-sheet.expanded .sheet-content {
     display: block;
 }
 
-/* -------------------- 앱 화면 전환 모션 -------------------- */
+/* -------------------- 앱 화면 전환 모션 (안정화) -------------------- */
 .app-screen {
-    /* 📢 모션 개선: 기본 상태는 숨김 */
-    display: none;
+    /* 📢 [수정] 모션 안정화를 위해 display: flex 유지 */
+    display: flex; 
     flex-direction: column;
     gap: 15px;
     
-    /* 📢 모션 개선: 불투명도와 트랜스폼을 전환 대상으로 설정 */
+    /* 📢 [수정] transition을 opacity와 transform에만 의존 */
     transition: opacity 0.3s, transform 0.3s;
     opacity: 0;
-    transform: translateY(10px); /* 살짝 아래에서 올라오는 효과 준비 */
+    transform: translateY(10px);
+    
+    /* 📢 [추가] 화면이 겹치지 않도록 absolute 사용 */
+    position: absolute; 
+    width: 100%;
+    left: 0;
+    top: 0;
+    padding: 15px;
+    box-sizing: border-box;
+    pointer-events: none; /* 비활성 화면의 클릭 방지 */
 }
 
-/* 📢 화면 헤더 및 뒤로 가기 버튼 스타일 추가 */
+/* 📢 활성화된 화면 (Transition 발생) */
+.app-screen.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto; /* 활성 화면 클릭 가능 */
+    position: relative; /* 시트 콘텐츠의 흐름을 다시 잡기 위해 relative로 변경 */
+}
+
+
+/* -------------------- 앱 화면 헤더 및 버튼 스타일 (유지) -------------------- */
+
 .screen-header {
     display: flex;
     align-items: center;
@@ -180,8 +204,8 @@ body {
 
 .screen-header .section-title {
     margin: 0;
-    border-bottom: none; /* screen-header에 border가 있으므로 중복 제거 */
-    flex-grow: 1; /* Title takes remaining space */
+    border-bottom: none; 
+    flex-grow: 1; 
 }
 
 .btn-icon.back-btn {
@@ -189,7 +213,7 @@ body {
     border: none;
     cursor: pointer;
     padding: 0;
-    margin-right: 10px; /* 버튼과 제목 사이 간격 */
+    margin-right: 10px; 
     display: flex;
     align-items: center;
     justify-content: center;
@@ -204,171 +228,11 @@ body {
 .btn-icon.back-btn svg {
     width: 24px;
     height: 24px;
-    stroke-width: 2.5; /* 좀 더 두껍게 */
+    stroke-width: 2.5; 
 }
+/* ... (나머지 스타일 유지) ... */
 
-
-.app-screen.active {
-    display: flex;
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* -------------------- 폼/버튼 디자인 -------------------- */
-
-.section-title {
-    font-size: 1.2em;
-    font-weight: 700;
-    color: var(--color-text);
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--color-border);
-    margin-bottom: 15px;
-}
-
-/* 입력 필드 그룹 및 직선 연결 */
-.input-form-group {
-    position: relative;
-    margin-bottom: 20px;
-}
-
-.input-row {
-    display: flex;
-    align-items: center;
-    padding: 8px 0;
-}
-
-.input-text {
-    flex-grow: 1;
-    padding: 12px 15px;
-    border: 1px solid #ddd;
-    border-radius: 10px; 
-    font-size: 1em;
-    transition: all 0.3s ease;
-    background-color: #fcfcfc;
-}
-
-.input-text:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 1px var(--color-primary);
-    outline: none;
-}
-
-.dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin: 0 10px;
-    flex-shrink: 0;
-    z-index: 2; 
-}
-.start-dot { background-color: var(--color-primary); } 
-.end-dot { background-color: var(--color-secondary); } 
-
-/* 직선으로 자연스럽게 연결하는 라인 */
-.vertical-line {
-    position: absolute;
-    left: 21px; 
-    top: 20px;
-    bottom: 20px;
-    width: 2px;
-    background-color: var(--color-border);
-    z-index: 1;
-}
-
-/* 출발/도착지 바꾸기 버튼 */
-.btn-swap {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 30px;
-    height: 30px;
-    border: none;
-    background-color: var(--color-background);
-    border-radius: 50%;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    z-index: 10;
-    padding: 0;
-}
-.btn-swap svg {
-    width: 16px;
-    height: 16px;
-    stroke: var(--color-text-sub);
-    stroke-width: 2;
-    fill: none;
-}
-
-
-/* 액션 그룹 (최근/즐겨찾기) */
-.action-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.btn-quick {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #cceeff;
-    border-radius: 8px;
-    background-color: #eaf7ff;
-    color: var(--color-secondary);
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-/* 주요 버튼 (Primary) */
-.btn-primary {
-    width: 100%;
-    padding: 14px;
-    border: none;
-    border-radius: 10px;
-    background: linear-gradient(180deg, var(--color-primary) 0%, #02a84c 100%); 
-    color: white;
-    font-weight: 700;
-    font-size: 1.1em;
-    cursor: pointer;
-    box-shadow: 0 4px 6px rgba(3, 199, 90, 0.3);
-    transition: all 0.2s ease;
-}
-.btn-primary:hover {
-    box-shadow: 0 6px 8px rgba(3, 199, 90, 0.4);
-    transform: translateY(-1px);
-}
-
-
-/* 플로팅 버튼 */
-.floating-buttons {
-    position: absolute;
-    bottom: 120px; 
-    right: 15px;
-    z-index: 101;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.float-btn {
-    width: 44px;
-    height: 44px;
-    border: none;
-    border-radius: 50%;
-    background-color: var(--color-surface);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-.float-btn svg {
-    width: 24px;
-    height: 24px;
-    fill: var(--color-text);
-}
-
-
-/* -------------------- 경로 조회 결과 스타일 -------------------- */
+/* -------------------- 경로 조회 결과 스타일 (유지) -------------------- */
 
 #route-summary-list {
     display: flex;
