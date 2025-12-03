@@ -1,9 +1,6 @@
+// vercel.json
+
 {
-  "functions": {
-    "api/proxy.js": {
-      "runtime": "nodejs@18.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
