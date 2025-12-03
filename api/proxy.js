@@ -1,7 +1,5 @@
 // api/proxy.js
 
-// fetch는 Vercel Node.js 런타임에서 기본적으로 전역 변수로 제공됩니다.
-
 export default async function handler(req, res) {
     // 1. CORS 헤더 설정
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,25 +13,24 @@ export default async function handler(req, res) {
     }
 
     // 3. TMAP API 키를 Vercel 환경 변수에서 가져옵니다.
+    // 📢 TMAP_API_KEY로 변수 이름 수정
     const TMAP_APP_KEY = process.env.TMAP_API_KEY; 
 
     if (!TMAP_APP_KEY) {
+        // 📢 에러 메시지도 수정
         return res.status(500).json({ error: "서버 오류: TMAP_API_KEY 환경 변수가 설정되지 않았거나 불러올 수 없습니다." });
     }
-    
+
     try {
-        // req.body는 Vercel 환경에서 자동으로 파싱되지 않을 수 있으므로, Node.js 기본 req 객체에서 가져옵니다.
-        // 현재 req 객체가 Vercel의 요청 객체 형태를 따른다고 가정하고 destructuring을 사용합니다.
         const { startX, startY, endX, endY } = req.body;
         
-        // 📢 [A, B 문제 해결] 최신 TMAP 대중교통 경로 검색 엔드포인트와 필수 파라미터 reqType 추가
-        const tmapUrl = "https://apis.openapi.sk.com/tmap/publictrans/transitInfo?version=1&format=json";
+        // 📢 TMAP API URL을 문서에 제시된 transit/routes로 복원합니다.
+        const tmapUrl = "https://apis.openapi.sk.com/transit/routes";
         
         const payload = {
             startX: startX, startY: startY,
             endX: endX, endY: endY,
-            reqType: "TOTAL", // 📢 필수 파라미터: 전체 경로 검색 요청
-            count: 5,         // 경로 개수를 5개로 늘려줍니다.
+            // transit/routes API는 count를 지원하지 않을 수 있으므로, 해당 파라미터는 제거하는 것이 안전합니다.
             format: "json"
         };
 
@@ -51,9 +48,9 @@ export default async function handler(req, res) {
         if (!response.ok) {
             const errorText = await response.text();
             
-            // 📢 TMAP API가 400 또는 403을 반환할 경우, 클라이언트에게도 해당 상태 코드를 전달
+            // 📢 TMAP API가 반환한 오류를 클라이언트에게 투명하게 전달합니다.
             return res.status(response.status).json({ 
-                error: "TMAP API 호출 실패", 
+                error: "TMAP API 호출 실패 (TMAP 서버 응답)", 
                 details: errorText,
                 status: response.status 
             });
