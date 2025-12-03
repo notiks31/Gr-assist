@@ -1,0 +1,15 @@
+{
+  "name": "transit-helper-app",
+  "version": "1.0.0",
+  "description": "Serverless backend for transit routing.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": "18.x" 
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2" 
+  }
+}
