@@ -2,7 +2,7 @@
 
 // config.js에서 키 가져오기
 const KAKAO_KEY = API_KEYS.KAKAO_MAP_JAVASCRIPT_KEY;
-const TMAP_KEY = API_KEYS.TMAP_API_KEY; // TMAP 키 사용
+const TMAP_KEY = API_KEYS.TMAP_API_KEY; // TMAP 키는 클라이언트에서는 사용하지 않음 (Proxy 서버에서 사용)
 
 const bottomSheet = document.getElementById('bottomSheet');
 const sheetHeader = document.getElementById('sheetHeader');
@@ -68,7 +68,6 @@ function displayMarker(locPosition, message) {
 
 /**
  * 현재 위치로 지도를 이동합니다. (인포윈도우 텍스트는 빈 문자열 전달)
- * @param {boolean} isInitialLoad - 초기 로드인지 여부 (자동 이동)
  */
 function moveToCurrentLocation(isInitialLoad = false) {
     if (navigator.geolocation) {
@@ -96,7 +95,7 @@ function moveToCurrentLocation(isInitialLoad = false) {
             },
             {
                 enableHighAccuracy: true,
-                timeout: 10000,
+                timeout: 15000, // Timeout을 15초로 늘려 안정성 확보
                 maximumAge: 0
             }
         );
@@ -137,11 +136,17 @@ function loadKakaoMapScript() {
 // --- TMAP 경로 검색 및 지도 그리기 ---
 
 /**
- * TMAP API를 사용하여 대중교통 최적 경로를 검색합니다.
+ * TMAP API를 Vercel Proxy를 통해 호출하여 경로를 검색합니다.
  */
 async function searchRoute() {
     const startAddress = startInput.value;
     const endAddress = endInput.value;
+    
+    // 이전에 그려진 경로선 제거
+    if (routePolyline) {
+        routePolyline.setMap(null);
+        routePolyline = null;
+    }
     
     routeSummaryList.innerHTML = '<h4>경로 검색 중... 잠시만 기다려주세요.</h4>';
     switchScreen(2); // 경로 조회 화면으로 먼저 이동
@@ -155,11 +160,10 @@ async function searchRoute() {
         return;
     }
 
-    // 📢 수정된 부분: TMAP URL 대신 Vercel Proxy 엔드포인트 호출
-    const proxyUrl = '/api/proxy'; // Vercel rewrites 설정에 따라 경로 지정
-    
+    // 2. Vercel Proxy 엔드포인트 호출
+    const proxyUrl = '/api/proxy'; 
+
     const requestBody = {
-        // TMAP에 전달할 좌표 데이터만 Body에 담아서 보냅니다.
         'startX': startCoords.longitude,
         'startY': startCoords.latitude,
         'endX': endCoords.longitude,
@@ -167,23 +171,37 @@ async function searchRoute() {
     };
 
     try {
-        // 📢 fetch URL이 TMAP이 아닌 Vercel의 프록시 URL이어야 합니다.
-        const response = await fetch(proxyUrl, { 
+        const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
-            throw new Error(`Proxy 호출 실패: ${response.status}`);
+            const errorData = await response.json();
+            // Proxy에서 전달된 TMAP 오류를 상세히 표시
+            throw new Error(`Proxy 호출 실패: ${response.status} (${errorData.error})`);
         }
 
         const data = await response.json();
-        // ... (이후 결과 처리 로직은 그대로 유지) ...
+        
+        // TMAP 응답 구조 확인
+        const routes = data.itineraries || (data.metaData ? data.metaData.plan.itineraries : null);
 
+
+        if (routes && routes.length > 0) {
+            displayRoutes(routes);
+            
+            // 📢 최선의 경로 (첫 번째 경로)를 지도에 바로 그립니다.
+            const polylineCoordinates = await getPolylineFromRoute(routes[0].legs);
+            drawPolyline(polylineCoordinates);
+
+        } else {
+            routeSummaryList.innerHTML = '<h4>검색된 대중교통 경로가 없습니다.</h4>';
+        }
     } catch (error) {
         console.error("경로 검색 중 오류 발생:", error);
-        routeSummaryList.innerHTML = '<h4>경로 검색 중 서버 오류가 발생했습니다.</h4>';
+        routeSummaryList.innerHTML = `<h4>경로 검색 중 서버 오류가 발생했습니다.</h4><p style="color:red; font-size:0.9em;">${error.message}</p>`;
     }
 }
 
@@ -213,7 +231,7 @@ function displayRoutes(routes) {
 
     routes.forEach((route, index) => {
         const totalTime = Math.round(route.totalTime / 60); 
-        const payment = route.fare.regular.totalFare; 
+        const payment = route.fare?.regular?.totalFare || 0; 
         
         const summary = route.legs.map(leg => {
             if (leg.mode === 'BUS') {
@@ -248,28 +266,29 @@ function displayRoutes(routes) {
 }
 
 /**
- * 경로의 좌표 배열을 받아 지도에 Polyline을 그립니다.
+ * 📢 Kakao 지도에 경로선(Polyline)을 그립니다.
  */
 function drawPolyline(coords) {
+    // 기존 경로선 제거
     if (routePolyline) {
         routePolyline.setMap(null);
     }
     
-    // Kakao LatLng 객체 배열 생성
+    // Kakao LatLng 객체 배열 생성 (좌표들을 이어서 선을 표시)
     const linePath = coords.map(c => new kakao.maps.LatLng(c[1], c[0]));
     
-    // Polyline 생성
+    // Polyline 객체 생성
     routePolyline = new kakao.maps.Polyline({
         path: linePath, 
         strokeWeight: 6, 
-        strokeColor: '#0076a8', 
+        strokeColor: '#0076a8', // 네이버 블루 계열 색상
         strokeOpacity: 0.8, 
         strokeStyle: 'solid' 
     });
 
     routePolyline.setMap(window.kakaoMap);
     
-    // 경로가 한눈에 보이도록 지도 중심과 확대 레벨 조정
+    // 경로가 한눈에 보이도록 지도 범위 조정
     const bounds = new kakao.maps.LatLngBounds();
     linePath.forEach(p => bounds.extend(p));
     window.kakaoMap.setBounds(bounds);
@@ -282,31 +301,32 @@ async function getPolylineFromRoute(legs) {
     let coordinates = [];
 
     legs.forEach(leg => {
+        // 출발 지점 좌표
         if (leg.start && leg.start.lon && leg.start.lat) {
             coordinates.push([leg.start.lon, leg.start.lat]);
         }
         
+        // 경유 정류장 목록 좌표
         if (leg.passStopList && leg.passStopList.stations) {
             leg.passStopList.stations.forEach(station => {
                 coordinates.push([station.lon, station.lat]);
             });
         }
         
+        // 도착 지점 좌표
         if (leg.end && leg.end.lon && leg.end.lat) {
             coordinates.push([leg.end.lon, leg.end.lat]);
         }
     });
 
+    // 중복 좌표 제거 및 반환
     const uniqueCoords = Array.from(new Set(coordinates.map(JSON.stringify)), JSON.parse);
     return uniqueCoords;
 }
 
 
-// --- 새로운 기능: 출발/도착지 교환 ---
+// --- 새로운 기능: 출발/도착지 교환 (생략) ---
 
-/**
- * 출발지 입력 필드와 도착지 입력 필드의 값을 서로 교환합니다.
- */
 function swapLocations() {
     const tempValue = startInput.value;
     startInput.value = endInput.value;
@@ -315,20 +335,34 @@ function swapLocations() {
 }
 
 
-// --- Bottom Sheet 및 UI 제어 ---
+// --- Bottom Sheet 및 UI 제어 (모션 개선) ---
 
 function toggleSheet() {
     // 시트 축소 (지도 화면으로 복귀)
     if (bottomSheet.classList.contains('expanded')) {
+        
+        // 1. 축소 클래스 추가 및 CSS transition 시작
         bottomSheet.classList.remove('expanded');
         bottomSheet.classList.add('initial-minimized');
         document.querySelector('.floating-buttons').style.display = 'flex';
+
+        // 📢 모션 개선: display: none 제어를 CSS에 완전히 맡깁니다.
+        const content = document.getElementById('expandedSheetContent');
+        if (content) {
+             content.style.opacity = 0; // 내용 숨기기 시작
+        }
     }
 }
 
 function expandSheet() {
     // 시트 확장
     if (bottomSheet.classList.contains('initial-minimized')) {
+        const content = document.getElementById('expandedSheetContent');
+        if (content) {
+            content.style.display = 'block'; // 먼저 보이게 설정
+            content.style.opacity = 1; // 내용 보이게 설정 (CSS transition 발동)
+        }
+
         bottomSheet.classList.remove('initial-minimized');
         bottomSheet.classList.add('expanded');
         document.querySelector('.floating-buttons').style.display = 'none';
@@ -339,7 +373,13 @@ function expandSheet() {
 function switchScreen(stage) {
     currentStage = stage;
     const screens = document.querySelectorAll('.app-screen');
-    screens.forEach(screen => screen.classList.remove('active'));
+    
+    // 비활성화 되는 화면은 transform과 opacity를 초기 상태로 되돌림
+    screens.forEach(screen => {
+        if (screen.classList.contains('active')) {
+             screen.classList.remove('active');
+        }
+    });
 
     let targetScreen;
     if (stage === 1) targetScreen = document.getElementById('home-screen');
@@ -353,10 +393,29 @@ function switchScreen(stage) {
     else if (stage === 9) targetScreen = document.getElementById('trip-complete-screen');
     
     if (targetScreen) {
-        targetScreen.classList.add('active');
+        // active 클래스가 CSS transition을 통해 opacity: 1, transform: translateY(0) 적용
+        targetScreen.classList.add('active'); 
         expandSheet();
     }
 }
+
+/**
+ * 📢 뒤로 가기 및 이동 종료 로직
+ */
+function goBack() {
+    if (currentStage === 2) {
+        // 경로 조회 결과 화면 (Stage 2) -> 홈 화면 (Stage 1)
+        switchScreen(1);
+    } else if (currentStage >= 3 && currentStage <= 8) {
+        // 이동 중 화면 (Stage 3-8) -> 홈 화면 (Stage 1)
+        alert("이동 안내를 종료하고 홈 화면으로 돌아갑니다.");
+        switchScreen(1);
+    } else if (currentStage === 9) {
+        // 이동 완료 화면 (Stage 9) -> 홈 화면 (Stage 1)
+         switchScreen(1);
+    }
+}
+
 
 /**
  * 이동 중 단계별 정보를 업데이트합니다. (Stage 3 로직 시뮬레이션)
@@ -381,11 +440,17 @@ function updateTripInfo(stage) {
 document.addEventListener('DOMContentLoaded', () => {
     loadKakaoMapScript();
     
+    // 📢 버튼 변수 정의 (DOMContentLoaded 내에서)
+    const backToHomeBtn1 = document.getElementById('backToHomeBtn1');
+    const backToHomeBtn2 = document.getElementById('backToHomeBtn2');
+    const endTripBtn = document.getElementById('endTripBtn');
+    const returnToHomeBtn = document.getElementById('returnToHomeBtn');
+    
     // Bottom Sheet 제어
     minimizedSearchBar.addEventListener('click', expandSheet);
     
     // 지도 오버레이 클릭 시 시트 축소 (지도 화면 복귀)
-    mapOverlay.addEventListener('click', toggleSheet);
+    sheetHeader.addEventListener('click', toggleSheet); 
     
     // 플로팅 버튼 클릭 시 현재 위치 이동
     currentLocationBtn.addEventListener('click', () => {
@@ -408,6 +473,14 @@ document.addEventListener('DOMContentLoaded', () => {
         switchScreen(3);
         toggleSheet(); 
     });
+    
+    // 📢 뒤로 가기 버튼 이벤트 리스너 연결
+    if (backToHomeBtn1) backToHomeBtn1.addEventListener('click', goBack);
+    if (backToHomeBtn2) backToHomeBtn2.addEventListener('click', goBack);
+    
+    // 📢 이동 종료/홈 복귀 버튼 이벤트 리스너 연결
+    if (endTripBtn) endTripBtn.addEventListener('click', goBack); 
+    if (returnToHomeBtn) returnToHomeBtn.addEventListener('click', goBack); 
     
     // 초기 로드시 Bottom Sheet는 최소화 상태로 시작 (Home Screen을 Active 상태로 유지)
     switchScreen(1);
