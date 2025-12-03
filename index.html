@@ -29,7 +29,7 @@
         </div>
 
         <div id="bottomSheet" class="bottom-sheet initial-minimized">
-            <div class="sheet-header" id="sheetHeader" aria-label="시트 토글">
+            <div class="sheet-header" id="sheetHeader" onclick="toggleSheet()" aria-label="시트 토글">
                 <div class="handle-bar">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 4L12 20M12 4L7 9M12 4L17 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -72,23 +72,36 @@
                     </section>
                     
                     <section id="route-results-screen" class="app-screen">
-                        <h2 class="section-title">🔍 경로 조회 결과</h2>
+                        <div class="screen-header">
+                            <button id="backToHomeBtn1" class="btn-icon back-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                            </button>
+                            <h2 class="section-title">경로 조회 결과</h2>
+                        </div>
                         <div id="route-summary-list">
                             </div>
-                        <button class="btn-primary" id="startTripBtn">이 경로로 이동</button>
+                        <button id="startTripBtn" class="btn-primary">이 경로로 이동</button>
                     </section>
                     
                     <section id="trip-in-progress-screen" class="app-screen">
+                        <div class="screen-header">
+                            <button id="backToHomeBtn2" class="btn-icon back-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                            </button>
+                            <h2 class="section-title">실시간 이동 안내</h2>
+                        </div>
                         <div id="current-stage-info">
                             </div>
                         <div id="dynamic-actions">
                              </div>
+                        <button id="endTripBtn" class="btn-primary">이동 종료</button>
                     </section>
                     
                     <section id="trip-complete-screen" class="app-screen">
                         <h2 class="section-title">🎉 이동 종료</h2>
                         <div id="completion-summary">
                             </div>
+                        <button id="returnToHomeBtn" class="btn-primary">홈으로 돌아가기</button>
                     </section>
                     
                 </div>
