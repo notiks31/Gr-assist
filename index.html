@@ -1,20 +1,263 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-	<meta charset="utf-8"/>
-	<title>Kakao 지도 시작하기</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>환승 버스 앱 - Kakao Map 기반</title>
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=d6a9086272b0c6871f25e0567fa6305b"></script>
+    <style>
+        /* 전체 스타일: Kakao Map의 클린 플랫 UI 영감, 노란색 액센트, 미니멀 디자인 */
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f8f8;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            height: 100vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        header {
+            background: #FEE500; /* Kakao yellow */
+            color: #333;
+            padding: 15px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            position: fixed;
+            width: 100%;
+            max-width: 500px;
+            z-index: 10;
+        }
+        .section {
+            display: none;
+            padding: 70px 20px 60px;
+        }
+        .section.active {
+            display: block;
+        }
+        #map {
+            width: 100%;
+            height: 300px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            background: #FEE500;
+            border: none;
+            color: #333;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #FFD700;
+        }
+        .list-item {
+            background: #fff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .timer {
+            font-size: 24px;
+            color: #FF4500;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        .bottom-nav button {
+            background: none;
+            border: none;
+            font-size: 14px;
+            color: #666;
+            padding: 5px;
+        }
+        .bottom-nav button.active {
+            color: #FEE500;
+        }
+        /* Naver Map 영감: 3D-like 요소, 직관적 버튼 */
+        .icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
-	<div id="map" style="width:500px;height:400px;"></div>
-	<script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=d6a9086272b0c6871f25e0567fa6305b"></script>
-	<script>
-		var container = document.getElementById('map');
-		var options = {
-			center: new kakao.maps.LatLng(33.450701, 126.570667),
-			level: 3
-		};
+    <div class="container">
+        <header>환승 버스 앱</header>
 
-		var map = new kakao.maps.Map(container, options);
-	</script>
+        <!-- 1. 홈 화면 -->
+        <div id="home" class="section active">
+            <input type="text" id="start" placeholder="출발지 입력">
+            <input type="text" id="end" placeholder="도착지 입력">
+            <button onclick="goToRoute()">경로 찾기</button>
+            <h3>최근 경로</h3>
+            <div class="list-item">서울역 → 강남역</div>
+            <div class="list-item">홍대 → 신촌</div>
+            <h3>즐겨찾기</h3>
+            <div class="list-item">집 → 회사</div>
+        </div>
+
+        <!-- 2. 경로 조회 -->
+        <div id="route" class="section">
+            <div id="map-route"></div>
+            <h3>전체 이동 경로</h3>
+            <div class="list-item">버스 1: 10분 후 도착, 환승 지점: A 정류장</div>
+            <div class="list-item">환승: 도보 5분</div>
+            <div class="list-item">버스 2: 20분 후 도착</div>
+            <button onclick="goToPreBoarding()">이 경로로 이동</button>
+        </div>
+
+        <!-- 3. 이동 시작 (탑승 전) -->
+        <div id="pre-boarding" class="section">
+            <div id="map-pre"></div>
+            <h3>1번 버스 도착까지 남은 시간: 5분</h3>
+            <p>정류장 위치: 현재 위치에서 200m</p>
+            <button onclick="goToOnBus()">버스 탑승</button>
+        </div>
+
+        <!-- 4. 1번 버스 이동 중 -->
+        <div id="on-bus1" class="section">
+            <div id="map-onbus1"></div>
+            <h3>현재 위치: 이동 중</h3>
+            <p>환승 지점까지 남은 정류장: 3개</p>
+            <p>하차 자동 감지 중...</p>
+            <button onclick="goToAlight()">하차</button>
+        </div>
+
+        <!-- 5. 하차 완료 / 환승 30분 타이머 시작 -->
+        <div id="alight" class="section">
+            <div class="timer" id="transfer-timer">환승 남은 시간: 30:00</div>
+            <h3>다음 버스 도착 시간: 10분 후</h3>
+            <p>정류장까지 거리: 150m / 도보 3분</p>
+            <button onclick="goToNearby()">주변 보기</button>
+            <button onclick="goToPreNext()">환승 준비</button>
+        </div>
+
+        <!-- 6. 주변 편의시설 -->
+        <div id="nearby" class="section">
+            <div id="map-nearby"></div>
+            <h3>주변 편의시설</h3>
+            <div class="list-item">편의점: 50m / 1분</div>
+            <div class="list-item">카페: 100m / 2분</div>
+            <div class="list-item">화장실: 80m / 1.5분</div>
+            <p>환승 가능 시간 안에 이용하세요.</p>
+            <button onclick="goToAlight()">정류장으로 돌아가기</button>
+        </div>
+
+        <!-- 7. 환승 준비 (도착 5분 전) -->
+        <div id="pre-next" class="section">
+            <h3>다음 버스 5분 후 도착</h3>
+            <p>정류장까지 남은 거리: 100m</p>
+            <p>도보 소요시간: 2분</p>
+            <button onclick="goToOnBus2()">정류장 이동</button>
+        </div>
+
+        <!-- 8. 2번 버스 탑승 -->
+        <div id="on-bus2" class="section">
+            <div id="map-onbus2"></div>
+            <h3>목적지까지 남은 정류장: 5개</h3>
+            <p>도착 예정 시간: 15분 후</p>
+            <button onclick="goToEnd()">도착</button>
+        </div>
+
+        <!-- 9. 이동 종료 -->
+        <div id="end" class="section">
+            <h3>환승 성공!</h3>
+            <p>절약한 요금: 500원</p>
+            <h4>전체 이동 요약</h4>
+            <div class="list-item">총 시간: 45분</div>
+            <div class="list-item">환승 횟수: 1회</div>
+            <button onclick="goToHome()">홈으로</button>
+        </div>
+
+        <!-- 바텀 네비게이션: 직관적, Naver 스타일 -->
+        <div class="bottom-nav">
+            <button onclick="goToHome()" class="active"><span class="icon">🏠</span>홈</button>
+            <button onclick="goToRoute()"><span class="icon">🗺️</span>경로</button>
+            <button onclick="goToNearby()"><span class="icon">📍</span>주변</button>
+            <button onclick="goToEnd()"><span class="icon">📊</span>요약</button>
+        </div>
+    </div>
+
+    <script>
+        // Kakao Map 초기화 (예시: 여러 맵 ID에 대해)
+        function initMap(mapId, lat, lng) {
+            var container = document.getElementById(mapId);
+            var options = {
+                center: new kakao.maps.LatLng(lat, lng),
+                level: 3
+            };
+            return new kakao.maps.Map(container, options);
+        }
+
+        // 화면 전환 함수
+        function switchSection(id) {
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.bottom-nav button').forEach(btn => btn.classList.remove('active'));
+            // 바텀 네비 액티브 (간단히)
+            if (id === 'home') document.querySelector('.bottom-nav button:nth-child(1)').classList.add('active');
+            else if (id === 'route') document.querySelector('.bottom-nav button:nth-child(2)').classList.add('active');
+            // 등등...
+
+            // 맵 초기화 예시
+            if (id === 'route') initMap('map-route', 33.450701, 126.570667);
+            if (id === 'pre-boarding') initMap('map-pre', 33.450701, 126.570667);
+            if (id === 'on-bus1') initMap('map-onbus1', 33.450701, 126.570667);
+            if (id === 'nearby') initMap('map-nearby', 33.450701, 126.570667);
+            if (id === 'on-bus2') initMap('map-onbus2', 33.450701, 126.570667);
+        }
+
+        // 버튼 함수
+        function goToRoute() { switchSection('route'); }
+        function goToPreBoarding() { switchSection('pre-boarding'); }
+        function goToOnBus() { switchSection('on-bus1'); }
+        function goToAlight() { switchSection('alight'); startTimer(); }
+        function goToNearby() { switchSection('nearby'); }
+        function goToPreNext() { switchSection('pre-next'); }
+        function goToOnBus2() { switchSection('on-bus2'); }
+        function goToEnd() { switchSection('end'); }
+        function goToHome() { switchSection('home'); }
+
+        // 타이머 예시 (환승 30분 카운트다운)
+        function startTimer() {
+            let time = 1800; // 30분
+            const timerEl = document.getElementById('transfer-timer');
+            const interval = setInterval(() => {
+                time--;
+                const min = Math.floor(time / 60);
+                const sec = time % 60;
+                timerEl.textContent = `환승 남은 시간: ${min}:${sec < 10 ? '0' : ''}${sec}`;
+                if (time <= 0) clearInterval(interval);
+            }, 1000);
+        }
+    </script>
 </body>
 </html>
