@@ -15,12 +15,12 @@ export default async function handler(req, res) {
     }
 
     // 3. TMAP API 키를 Vercel 환경 변수에서 가져옵니다.
-    const TMAP_APP_KEY = process.env.TMAP_KEY;
+    const TMAP_APP_KEY = process.env.TMAP_API_KEY; 
 
     if (!TMAP_APP_KEY) {
-        return res.status(500).json({ error: "서버 오류: TMAP_KEY 환경 변수가 설정되지 않았거나 불러올 수 없습니다." });
+        return res.status(500).json({ error: "서버 오류: TMAP_API_KEY 환경 변수가 설정되지 않았거나 불러올 수 없습니다." });
     }
-
+    
     try {
         // req.body는 Vercel 환경에서 자동으로 파싱되지 않을 수 있으므로, Node.js 기본 req 객체에서 가져옵니다.
         // 현재 req 객체가 Vercel의 요청 객체 형태를 따른다고 가정하고 destructuring을 사용합니다.
