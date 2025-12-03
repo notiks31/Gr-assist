@@ -11,6 +11,22 @@
     --color-border: #eee;
 }
 
+/* 📢 스크롤바 제거를 위한 CSS */
+body::-webkit-scrollbar, 
+.sheet-content-wrapper::-webkit-scrollbar {
+    width: 0;
+    background: transparent; /* 투명 */
+}
+
+/* body에 대한 일반 스크롤바 제거 (IE, Edge) */
+body {
+    -ms-overflow-style: none;  /* IE and Edge */
+}
+/* sheet-content-wrapper에 대한 일반 스크롤바 제거 (IE, Edge) */
+.sheet-content-wrapper {
+    -ms-overflow-style: none;
+}
+
 body {
     font-family: 'Pretendard', sans-serif;
     margin: 0;
@@ -74,7 +90,8 @@ body {
     box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.15);
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* 📢 모션 개선: transform에 부드러운 전환 적용 */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 100;
 }
 
@@ -132,22 +149,72 @@ body {
 /* 확장된 시트 내용 */
 .sheet-content {
     padding: 15px;
-    display: none;
+    /* 📢 모션 개선: 자식 화면들이 부드럽게 나타나도록 opacity 전환 적용 */
+    transition: opacity 0.3s ease-in-out; 
 }
 .bottom-sheet.expanded .sheet-content {
     display: block;
 }
 
-/* -------------------- 폼/버튼 디자인 -------------------- */
-
+/* -------------------- 앱 화면 전환 모션 -------------------- */
 .app-screen {
+    /* 📢 모션 개선: 기본 상태는 숨김 */
     display: none;
     flex-direction: column;
     gap: 15px;
+    
+    /* 📢 모션 개선: 불투명도와 트랜스폼을 전환 대상으로 설정 */
+    transition: opacity 0.3s, transform 0.3s;
+    opacity: 0;
+    transform: translateY(10px); /* 살짝 아래에서 올라오는 효과 준비 */
 }
+
+/* 📢 화면 헤더 및 뒤로 가기 버튼 스타일 추가 */
+.screen-header {
+    display: flex;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 15px;
+}
+
+.screen-header .section-title {
+    margin: 0;
+    border-bottom: none; /* screen-header에 border가 있으므로 중복 제거 */
+    flex-grow: 1; /* Title takes remaining space */
+}
+
+.btn-icon.back-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-right: 10px; /* 버튼과 제목 사이 간격 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-sub);
+    transition: color 0.2s;
+}
+
+.btn-icon.back-btn:hover {
+    color: var(--color-primary);
+}
+
+.btn-icon.back-btn svg {
+    width: 24px;
+    height: 24px;
+    stroke-width: 2.5; /* 좀 더 두껍게 */
+}
+
+
 .app-screen.active {
     display: flex;
+    opacity: 1;
+    transform: translateY(0);
 }
+
+/* -------------------- 폼/버튼 디자인 -------------------- */
 
 .section-title {
     font-size: 1.2em;
